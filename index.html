@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <title>Neon Brick Breaker - Ultimate</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #050505;
+            --neon-blue: #00f3ff;
+            --neon-pink: #ff00ff;
+            --neon-green: #00ff00;
+            --neon-yellow: #ffff00;
+            --text-font: 'Orbitron', sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: white;
+            font-family: var(--text-font);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            touch-action: none;
+            /* Mencegah scroll pada mobile */
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            aspect-ratio: 3/4;
+            background: #111;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+            border: 2px solid #333;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlays */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            text-transform: uppercase;
+            color: white;
+            text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue);
+            margin-bottom: 10px;
+            text-align: center;
+            line-height: 1.2;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            color: var(--neon-pink);
+            text-shadow: 0 0 10px var(--neon-pink);
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            background: transparent;
+            color: white;
+            border: 2px solid var(--neon-green);
+            padding: 15px 30px;
+            font-family: var(--text-font);
+            font-size: 1.2rem;
+            margin: 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 10px var(--neon-green) inset, 0 0 10px var(--neon-green);
+            transition: all 0.2s;
+            min-width: 200px;
+        }
+
+        .btn:hover {
+            background: var(--neon-green);
+            color: black;
+            box-shadow: 0 0 20px var(--neon-green);
+        }
+
+        .btn-secondary {
+            border-color: var(--neon-yellow);
+            box-shadow: 0 0 10px var(--neon-yellow) inset, 0 0 10px var(--neon-yellow);
+        }
+
+        .btn-secondary:hover {
+            background: var(--neon-yellow);
+            color: black;
+            box-shadow: 0 0 20px var(--neon-yellow);
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            font-size: 1rem;
+            pointer-events: none;
+            z-index: 5;
+            text-shadow: 0 0 5px white;
+        }
+
+        #pause-btn {
+            pointer-events: auto;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid white;
+            color: white;
+            padding: 5px 10px;
+            font-family: var(--text-font);
+            cursor: pointer;
+        }
+
+        .controls-hint {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #aaa;
+            text-align: center;
+        }
+
+        /* Efek Scanline TV Lama */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+            z-index: 20;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Lapisan Efek TV -->
+        <div class="scanlines"></div>
+
+        <!-- HUD (Heads Up Display) -->
+        <div id="hud" class="hidden">
+            <div>SKOR: <span id="score">0</span></div>
+            <div>LEVEL: <span id="level-display">1</span></div>
+            <div style="text-align: right;">
+                <div>HIGH: <span id="highscore">0</span></div>
+                <button id="pause-btn">||</button>
+            </div>
+        </div>
+
+        <!-- Menu Utama -->
+        <div id="main-menu" class="overlay">
+            <h1>NEON<br>BREAKER</h1>
+            <p>Hancurkan Balok, Raih Kejayaan!</p>
+            <button class="btn" onclick="startGame('campaign')">Mode Cerita (6 Peta)</button>
+            <button class="btn btn-secondary" onclick="startGame('random')">Mode Acak</button>
+            <div class="controls-hint">
+                Desktop: Panah/Mouse & Spasi<br>
+                Mobile: Geser & Ketuk
+            </div>
+        </div>
+
+        <!-- Menu Pause -->
+        <div id="pause-menu" class="overlay hidden">
+            <h1>PAUSED</h1>
+            <button class="btn" onclick="resumeGame()">Lanjut</button>
+            <button class="btn btn-secondary" onclick="quitGame()">Menu Utama</button>
+        </div>
+
+        <!-- Game Over / Victory -->
+        <div id="game-over-menu" class="overlay hidden">
+            <h1 id="end-title">GAME OVER</h1>
+            <h2 id="end-score">Skor Akhir: 0</h2>
+            <button class="btn" onclick="restartLevel()">Coba Lagi</button>
+            <button class="btn btn-secondary" onclick="quitGame()">Menu Utama</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * KONFIGURASI DAN VARIABEL GLOBAL
+         */
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Elements
+        const mainMenu = document.getElementById('main-menu');
+        const pauseMenu = document.getElementById('pause-menu');
+        const gameOverMenu = document.getElementById('game-over-menu');
+        const hud = document.getElementById('hud');
+        const scoreEl = document.getElementById('score');
+        const highScoreEl = document.getElementById('highscore');
+        const levelDisplayEl = document.getElementById('level-display');
+        const pauseBtn = document.getElementById('pause-btn');
+        const endTitle = document.getElementById('end-title');
+        const endScore = document.getElementById('end-score');
+
+        // Game State
+        let gameState = 'MENU'; // MENU, PLAYING, PAUSED, GAMEOVER, VICTORY, LEVEL_TRANSITION
+        let gameMode = 'campaign'; // 'campaign' or 'random'
+        let animationId;
+        let lastTime = 0;
+
+        // Logika Responsif
+        let canvasWidth, canvasHeight;
+        let scaleRatio = 1;
+
+        // Data Permainan
+        let score = 0;
+        let highScore = localStorage.getItem('neonBreaker_highScore') || 0;
+        let currentLevel = 1;
+        let lives = 3; // (Opsional, saat ini menggunakan sistem 1 nyawa = kalah, atau bisa dikembangkan)
+
+        // Audio Context (untuk suara offline)
+        let audioCtx;
+
+        /**
+         * OBJEK GAME
+         */
+
+        const PADDLE_WIDTH_BASE = 100;
+        const PADDLE_HEIGHT_BASE = 15;
+        const BALL_RADIUS_BASE = 6;
+        const BRICK_ROW_COUNT = 8;
+        const BRICK_COL_COUNT = 9; // Grid dasar
+
+        const paddle = {
+            x: 0, y: 0, width: 0, height: 0,
+            color: '#00f3ff', speed: 8, dx: 0
+        };
+
+        const ball = {
+            x: 0, y: 0, radius: 0,
+            speed: 0, dx: 0, dy: 0,
+            color: '#fff',
+            active: false,
+            trail: [] // Array untuk efek ekor bola
+        };
+
+        let bricks = [];
+        let particles = []; // Untuk efek ledakan
+
+        /**
+         * PENGATURAN LEVEL (MAPS)
+         * 1 = Balok Biasa, 0 = Kosong, 2 = Balok Keras (2 hit), 3 = Tak Terhancurkan (opsional)
+         */
+        const maps = [
+            // Level 1: Baris Sederhana
+            [
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0]
+            ],
+            // Level 2: Pola ZigZag
+            [
+                [1, 0, 1, 0, 1, 0, 1, 0, 1],
+                [0, 1, 0, 1, 0, 1, 0, 1, 0],
+                [1, 0, 1, 0, 1, 0, 1, 0, 1],
+                [0, 1, 0, 1, 0, 1, 0, 1, 0],
+                [1, 0, 1, 0, 1, 0, 1, 0, 1]
+            ],
+            // Level 3: Piramida
+            [
+                [0, 0, 0, 0, 1, 0, 0, 0, 0],
+                [0, 0, 0, 1, 1, 1, 0, 0, 0],
+                [0, 0, 1, 1, 1, 1, 1, 0, 0],
+                [0, 1, 1, 1, 1, 1, 1, 1, 0],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1]
+            ],
+            // Level 4: Benteng (Tengah Kosong)
+            [
+                [1, 1, 1, 1, 1, 1, 1, 1, 1],
+                [1, 1, 0, 0, 0, 0, 0, 1, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 1, 0, 0, 0, 0, 0, 1, 1],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1]
+            ],
+            // Level 5: Kolom Kembar
+            [
+                [1, 1, 0, 1, 1, 0, 1, 1, 0],
+                [1, 1, 0, 1, 1, 0, 1, 1, 0],
+                [1, 1, 0, 1, 1, 0, 1, 1, 0],
+                [1, 1, 0, 1, 1, 0, 1, 1, 0],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1]
+            ],
+            // Level 6: THE BOSS (Wajah Alien Abstrak)
+            [
+                [1, 0, 1, 0, 0, 0, 1, 0, 1],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 1, 0, 0, 0, 1, 1, 0],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1],
+                [0, 1, 0, 1, 0, 1, 0, 1, 0],
+                [0, 0, 1, 0, 0, 0, 1, 0, 0]
+            ]
+        ];
+
+        /**
+         * SISTEM AUDIO (Web Audio API) - Offline
+         */
+        function playSound(type) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'paddle') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'brick') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'wall') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, now);
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'lost') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(200, now);
+                osc.frequency.exponentialRampToValueAtTime(50, now + 0.5);
+                gainNode.gain.setValueAtTime(0.3, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            } else if (type === 'win') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.3);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        }
+
+        /**
+         * INIT & RESIZE
+         */
+        function resize() {
+            // Mengatur ukuran canvas agar sesuai dengan container CSS
+            const container = document.getElementById('game-container');
+            canvasWidth = container.clientWidth;
+            canvasHeight = container.clientHeight;
+
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+
+            // Skala elemen game berdasarkan ukuran layar
+            scaleRatio = canvasWidth / 600; // 600 adalah lebar referensi
+
+            paddle.width = PADDLE_WIDTH_BASE * scaleRatio;
+            paddle.height = PADDLE_HEIGHT_BASE * scaleRatio;
+            ball.radius = BALL_RADIUS_BASE * scaleRatio;
+
+            // Reset posisi paddle jika keluar layar
+            if (paddle.y === 0) paddle.y = canvasHeight - paddle.height - 30;
+        }
+
+        window.addEventListener('resize', resize);
+
+        /**
+         * GENERATE LEVEL
+         */
+        function createBricks(levelIndex) {
+            bricks = [];
+            const padding = 10 * scaleRatio;
+            const offsetTop = 60 * scaleRatio;
+            const offsetLeft = 35 * scaleRatio;
+
+            // Hitung lebar brick agar pas di layar
+            const availableWidth = canvasWidth - (2 * offsetLeft);
+            const brickWidth = (availableWidth / BRICK_COL_COUNT) - padding;
+            const brickHeight = 20 * scaleRatio;
+
+            let mapData;
+
+            if (gameMode === 'random') {
+                // Generate Random Map
+                mapData = [];
+                for (let r = 0; r < 6; r++) {
+                    let row = [];
+                    for (let c = 0; c < BRICK_COL_COUNT; c++) {
+                        // 60% kemungkinan ada brick
+                        row.push(Math.random() > 0.4 ? 1 : 0);
+                    }
+                    mapData.push(row);
+                }
+            } else {
+                // Campaign Mode
+                mapData = maps[levelIndex % maps.length];
+            }
+
+            // Warna berdasarkan baris (Tema Neon)
+            const colors = ['#ff00ff', '#00f3ff', '#00ff00', '#ffff00', '#ff0000'];
+
+            for (let r = 0; r < mapData.length; r++) {
+                for (let c = 0; c < mapData[r].length; c++) {
+                    if (mapData[r][c] === 1) {
+                        const brickX = (c * (brickWidth + padding)) + offsetLeft;
+                        const brickY = (r * (brickHeight + padding)) + offsetTop;
+                        bricks.push({
+                            x: brickX,
+                            y: brickY,
+                            w: brickWidth,
+                            h: brickHeight,
+                            status: 1,
+                            color: colors[r % colors.length]
+                        });
+                    }
+                }
+            }
+        }
+
+        /**
+         * GAME LOOP LOGIC
+         */
+        function initGame() {
+            resize();
+            score = 0;
+            currentLevel = 1;
+            resetBallAndPaddle();
+            highScoreEl.innerText = highScore;
+            updateUI();
+        }
+
+        function resetBallAndPaddle() {
+            paddle.x = (canvasWidth - paddle.width) / 2;
+            paddle.y = canvasHeight - paddle.height - 30; // Sedikit jarak dari bawah
+
+            ball.x = canvasWidth / 2;
+            ball.y = paddle.y - ball.radius - 2;
+            ball.speed = 6 * scaleRatio;
+            ball.dx = 0; // Mulai diam
+            ball.dy = 0;
+            ball.active = false;
+            ball.trail = [];
+        }
+
+        function startGame(mode) {
+            gameMode = mode;
+            gameState = 'PLAYING';
+
+            mainMenu.classList.add('hidden');
+            hud.classList.remove('hidden');
+            gameOverMenu.classList.add('hidden');
+
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioCtx.resume();
+
+            initGame();
+            createBricks(gameMode === 'campaign' ? 0 : 0);
+
+            lastTime = performance.now();
+            requestAnimationFrame(loop);
+        }
+
+        function quitGame() {
+            gameState = 'MENU';
+            pauseMenu.classList.add('hidden');
+            gameOverMenu.classList.add('hidden');
+            hud.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+        }
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                pauseMenu.classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                resumeGame();
+            }
+        }
+
+        function resumeGame() {
+            gameState = 'PLAYING';
+            pauseMenu.classList.add('hidden');
+            lastTime = performance.now();
+            requestAnimationFrame(loop);
+        }
+
+        function restartLevel() {
+            gameState = 'PLAYING';
+            gameOverMenu.classList.add('hidden');
+            score = 0; // Reset score jika kalah total
+            currentLevel = 1;
+            updateUI();
+            createBricks(0);
+            resetBallAndPaddle();
+            lastTime = performance.now();
+            requestAnimationFrame(loop);
+        }
+
+        // Input Handling
+        let rightPressed = false;
+        let leftPressed = false;
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Right' || e.key === 'ArrowRight') rightPressed = true;
+            else if (e.key === 'Left' || e.key === 'ArrowLeft') leftPressed = true;
+            else if (e.code === 'Space') {
+                if (!ball.active && gameState === 'PLAYING') {
+                    launchBall();
+                } else {
+                    togglePause();
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Right' || e.key === 'ArrowRight') rightPressed = false;
+            else if (e.key === 'Left' || e.key === 'ArrowLeft') leftPressed = false;
+        });
+
+        // Mouse & Touch
+        document.addEventListener('mousemove', (e) => {
+            if (gameState !== 'PLAYING' && gameState !== 'LEVEL_TRANSITION') return;
+            const relativeX = e.clientX - canvas.offsetLeft;
+            if (relativeX > 0 && relativeX < canvasWidth) {
+                paddle.x = relativeX - paddle.width / 2;
+            }
+        });
+
+        // Touch untuk mobile
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (gameState !== 'PLAYING') return;
+            const relativeX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+            if (relativeX > 0 && relativeX < canvasWidth) {
+                paddle.x = relativeX - paddle.width / 2;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (gameState === 'PLAYING' && !ball.active) {
+                launchBall();
+            }
+        });
+
+        pauseBtn.addEventListener('click', togglePause);
+
+        function launchBall() {
+            ball.active = true;
+            ball.dy = -ball.speed;
+            ball.dx = ball.speed * (Math.random() * 2 - 1); // Random sedikit ke kiri/kanan
+        }
+
+        /**
+         * UPDATE LOGIC
+         */
+        function update(dt) {
+            if (gameState !== 'PLAYING') return;
+
+            // Move Paddle (Keyboard)
+            if (rightPressed && paddle.x < canvasWidth - paddle.width) {
+                paddle.x += paddle.speed * (dt / 16);
+            }
+            else if (leftPressed && paddle.x > 0) {
+                paddle.x -= paddle.speed * (dt / 16);
+            }
+
+            // Clamp paddle (Mouse/Touch safety)
+            if (paddle.x < 0) paddle.x = 0;
+            if (paddle.x + paddle.width > canvasWidth) paddle.x = canvasWidth - paddle.width;
+
+            // Move Ball
+            if (!ball.active) {
+                ball.x = paddle.x + paddle.width / 2;
+                ball.y = paddle.y - ball.radius - 2;
+            } else {
+                ball.x += ball.dx;
+                ball.y += ball.dy;
+
+                // Trail Logic
+                ball.trail.push({ x: ball.x, y: ball.y, alpha: 1.0 });
+                if (ball.trail.length > 10) ball.trail.shift();
+
+                // Wall Collision
+                if (ball.x + ball.radius > canvasWidth || ball.x - ball.radius < 0) {
+                    ball.dx = -ball.dx;
+                    playSound('wall');
+                }
+                if (ball.y - ball.radius < 0) {
+                    ball.dy = -ball.dy;
+                    playSound('wall');
+                }
+                else if (ball.y + ball.radius > canvasHeight) {
+                    // Ball Lost
+                    handleLifeLost();
+                }
+
+                // Paddle Collision
+                if (ball.y + ball.radius > paddle.y &&
+                    ball.y - ball.radius < paddle.y + paddle.height &&
+                    ball.x > paddle.x &&
+                    ball.x < paddle.x + paddle.width) {
+
+                    // Pantulan dinamis: semakin ke pinggir paddle, semakin miring
+                    let collidePoint = ball.x - (paddle.x + paddle.width / 2);
+                    collidePoint = collidePoint / (paddle.width / 2);
+
+                    let angle = collidePoint * (Math.PI / 3); // Max 60 derajat
+
+                    // Tambah kecepatan sedikit setiap memantul
+                    let currentSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+                    if (currentSpeed < 12 * scaleRatio) currentSpeed += 0.2;
+
+                    ball.dx = currentSpeed * Math.sin(angle);
+                    ball.dy = -currentSpeed * Math.cos(angle);
+
+                    playSound('paddle');
+                    createParticles(ball.x, paddle.y, '#00f3ff', 5);
+                }
+
+                // Brick Collision
+                let activeBricksCount = 0;
+                for (let i = 0; i < bricks.length; i++) {
+                    let b = bricks[i];
+                    if (b.status === 1) {
+                        activeBricksCount++;
+                        if (ball.x > b.x && ball.x < b.x + b.w &&
+                            ball.y > b.y && ball.y < b.y + b.h) {
+                            ball.dy = -ball.dy;
+                            b.status = 0;
+                            score += 10;
+                            playSound('brick');
+                            createParticles(b.x + b.w / 2, b.y + b.h / 2, b.color, 8);
+                            updateUI();
+                            activeBricksCount--; // Kurangi hitungan segera
+                        }
+                    }
+                }
+
+                // Check Win Condition
+                if (activeBricksCount === 0) {
+                    handleLevelComplete();
+                }
+            }
+
+            // Update Particles
+            updateParticles();
+        }
+
+        function handleLifeLost() {
+            playSound('lost');
+            ball.active = false;
+            resetBallAndPaddle();
+            // Disini kita bisa kurangi nyawa. Untuk simpelnya, langsung Game Over.
+            // Jika ingin sistem nyawa: lives--; if(lives<=0) gameOver();
+            gameOver(false);
+        }
+
+        function handleLevelComplete() {
+            playSound('win');
+            ball.active = false;
+            resetBallAndPaddle();
+
+            // Cek jika mode campaign selesai
+            if (gameMode === 'campaign' && currentLevel >= 6) {
+                gameOver(true); // Menang Tamat
+                return;
+            }
+
+            // Next Level
+            currentLevel++;
+
+            // Jika mode random, level terus naik tak terbatas
+            // Jika campaign, naik ke map berikutnya
+            let mapIdx = (gameMode === 'campaign') ? currentLevel - 1 : 0;
+
+            updateUI();
+
+            // Jeda sebentar sebelum level baru
+            gameState = 'LEVEL_TRANSITION';
+            setTimeout(() => {
+                createBricks(mapIdx);
+                gameState = 'PLAYING';
+            }, 1000);
+        }
+
+        function gameOver(victory) {
+            gameState = victory ? 'VICTORY' : 'GAMEOVER';
+
+            // Save High Score
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('neonBreaker_highScore', highScore);
+            }
+
+            endTitle.innerText = victory ? "KAMU MENANG!" : "PERMAINAN SELESAI";
+            endTitle.style.color = victory ? "var(--neon-green)" : "red";
+            endScore.innerText = "Skor Akhir: " + score;
+
+            gameOverMenu.classList.remove('hidden');
+            hud.classList.add('hidden');
+        }
+
+        function updateUI() {
+            scoreEl.innerText = score;
+            highScoreEl.innerText = highScore;
+            levelDisplayEl.innerText = currentLevel;
+        }
+
+        /**
+         * PARTICLE SYSTEM
+         */
+        function createParticles(x, y, color, count) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    dx: (Math.random() - 0.5) * 4,
+                    dy: (Math.random() - 0.5) * 4,
+                    life: 1.0,
+                    color: color
+                });
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.dx;
+                p.y += p.dy;
+                p.life -= 0.03;
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        /**
+         * DRAW LOGIC
+         */
+        function draw() {
+            // Clear Screen
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.4)'; // Trail effect for everything
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Paddle
+            ctx.fillStyle = paddle.color;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = paddle.color;
+            ctx.beginPath();
+            ctx.roundRect(paddle.x, paddle.y, paddle.width, paddle.height, 5);
+            ctx.fill();
+            ctx.shadowBlur = 0; // Reset shadow
+
+            // Draw Bricks
+            for (let i = 0; i < bricks.length; i++) {
+                let b = bricks[i];
+                if (b.status === 1) {
+                    ctx.fillStyle = b.color;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = b.color;
+                    ctx.beginPath();
+                    ctx.rect(b.x, b.y, b.w, b.h);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+
+                    // Detail kilau di brick
+                    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                    ctx.fillRect(b.x, b.y, b.w, 4);
+                }
+            }
+
+            // Draw Ball Trail
+            ball.trail.forEach((t, index) => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${t.alpha * 0.3})`;
+                ctx.beginPath();
+                ctx.arc(t.x, t.y, ball.radius * (index / ball.trail.length), 0, Math.PI * 2);
+                ctx.fill();
+                t.alpha -= 0.05;
+            });
+
+            // Draw Ball
+            ctx.fillStyle = ball.color;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#fff';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // Draw Particles
+            for (let p of particles) {
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1.0;
+        }
+
+        /**
+         * MAIN LOOP
+         */
+        function loop(timestamp) {
+            let dt = timestamp - lastTime;
+            lastTime = timestamp;
+
+            if (gameState === 'PLAYING' || gameState === 'LEVEL_TRANSITION') {
+                update(dt);
+                draw();
+                requestAnimationFrame(loop);
+            }
+        }
+
+        // Init awal untuk layout
+        resize();
+
+    </script>
+</body>
+
+</html>
